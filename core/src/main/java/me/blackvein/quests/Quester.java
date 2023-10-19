@@ -16,6 +16,7 @@ import com.alessiodp.parties.api.interfaces.Party;
 import com.alessiodp.parties.api.interfaces.PartyPlayer;
 import com.gmail.nossr50.datatypes.skills.SkillType;
 import com.gmail.nossr50.util.player.UserManager;
+import com.google.common.collect.Lists;
 import io.github.znetworkw.znpcservers.npc.NPC;
 import me.blackvein.quests.conditions.ICondition;
 import me.blackvein.quests.config.ISettings;
@@ -74,6 +75,7 @@ import org.bukkit.inventory.meta.EnchantmentStorageMeta;
 import org.bukkit.material.Crops;
 import org.jetbrains.annotations.NotNull;
 
+import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
@@ -864,11 +866,11 @@ public class Quester implements IQuester {
         if (quest == null) {
             return false;
         }
-        final QuestQuitEvent event = new QuestQuitEvent(quest, this);
-        plugin.getServer().getPluginManager().callEvent(event);
-        if (event.isCancelled()) {
-            return false;
-        }
+//        final QuestQuitEvent event = new QuestQuitEvent(quest, this);
+//        plugin.getServer().getPluginManager().callEvent(event);
+//        if (event.isCancelled()) {
+//            return false;
+//        }
         final ISettings settings = plugin.getSettings();
         if (getPlayer() != null) {
             setQuestIdToQuit(quest.getId());
@@ -896,6 +898,8 @@ public class Quester implements IQuester {
      */
     public void quitQuest(final IQuest quest, final String message) {
         quitQuest(quest, new String[] {message});
+        final QuestQuitEvent event = new QuestQuitEvent(quest, this);
+        plugin.getServer().getPluginManager().callEvent(event);
     }
     
     /**
@@ -2543,10 +2547,20 @@ public class Quester implements IQuester {
                 }
             }
         }
-        
-        final QuesterPostUpdateObjectiveEvent postEvent = new QuesterPostUpdateObjectiveEvent(this, quest, 
-                new BukkitObjective(type, newBroken.getAmount(), toBreak.getAmount()));
+
+        final QuesterPostUpdateObjectiveEvent postEvent = new QuesterPostUpdateObjectiveEvent(this, quest,
+                setGoalObj(new BukkitObjective(type, newBroken.getAmount(), toBreak.getAmount()), itemStack));
         plugin.getServer().getPluginManager().callEvent(postEvent);
+    }
+
+    public static BukkitObjective setGoalObj(BukkitObjective objective, Object obj) {
+        try {
+            Field declaredField = BukkitObjective.class.getDeclaredField("goalObj");
+            declaredField.setAccessible(true);
+            declaredField.set(objective, obj);
+        } catch (Exception ignore) {
+        }
+        return objective;
     }
     
     /**
@@ -2718,7 +2732,7 @@ public class Quester implements IQuester {
         }
         
         final QuesterPostUpdateObjectiveEvent postEvent = new QuesterPostUpdateObjectiveEvent(this, quest, 
-                new BukkitObjective(type, newPlaced.getAmount(), toPlace.getAmount()));
+                setGoalObj(new BukkitObjective(type, newPlaced.getAmount(), toPlace.getAmount()), toPlace));
         plugin.getServer().getPluginManager().callEvent(postEvent);
     }
 
@@ -2803,8 +2817,8 @@ public class Quester implements IQuester {
             }
         }
         
-        final QuesterPostUpdateObjectiveEvent postEvent = new QuesterPostUpdateObjectiveEvent(this, quest, 
-                new BukkitObjective(type, newUsed.getAmount(), toUse.getAmount()));
+        final QuesterPostUpdateObjectiveEvent postEvent = new QuesterPostUpdateObjectiveEvent(this, quest,
+                setGoalObj(new BukkitObjective(type, newUsed.getAmount(), toUse.getAmount()), toUse));
         plugin.getServer().getPluginManager().callEvent(postEvent);
     }
 
@@ -3339,7 +3353,7 @@ public class Quester implements IQuester {
             }
             
             final QuesterPostUpdateObjectiveEvent postEvent = new QuesterPostUpdateObjectiveEvent(this, quest, 
-                    new BukkitObjective(type, newAmount, toDeliver));
+                    setGoalObj(new BukkitObjective(type, newAmount, toDeliver), npc));
             plugin.getServer().getPluginManager().callEvent(postEvent);
         }
     }
@@ -3381,7 +3395,7 @@ public class Quester implements IQuester {
                     }));
             
             final QuesterPostUpdateObjectiveEvent postEvent = new QuesterPostUpdateObjectiveEvent(this, quest, 
-                    new BukkitObjective(type, 1, 1));
+                    setGoalObj(new BukkitObjective(type, 1, 1), npc));
             plugin.getServer().getPluginManager().callEvent(postEvent);
         }
     }
@@ -3613,8 +3627,8 @@ public class Quester implements IQuester {
                     }));
         }
         
-        final QuesterPostUpdateObjectiveEvent postEvent = new QuesterPostUpdateObjectiveEvent(this, quest, 
-                new BukkitObjective(type, newMobsKilled, mobsToKill));
+        final QuesterPostUpdateObjectiveEvent postEvent = new QuesterPostUpdateObjectiveEvent(this, quest,
+                setGoalObj(new BukkitObjective(type, newMobsKilled, mobsToKill), entityType));
         plugin.getServer().getPluginManager().callEvent(postEvent);
     }
 
@@ -3696,7 +3710,8 @@ public class Quester implements IQuester {
 
         int index = 0;
         try {
-            for (final Location toReach : getCurrentStage(quest).getLocationsToReach()) {
+            for (int i = 0; i < getCurrentStage(quest).getLocationsToReach().size(); i++) {
+                final Location toReach = getCurrentStage(quest).getLocationsToReach().get(i);
                 if (location.getWorld() == null || toReach.getWorld() == null) {
                     index++;
                     continue;
@@ -3730,10 +3745,15 @@ public class Quester implements IQuester {
                                     }
                                     return null;
                                 }));
-                        
-                        final QuesterPostUpdateObjectiveEvent postEvent 
+
+                        LinkedList<String> locationNames = Optional.ofNullable(quest)
+                                .map(this::getCurrentStage)
+                                .map(IStage::getLocationNames)
+                                .orElse(Lists.newLinkedList());
+                        final QuesterPostUpdateObjectiveEvent postEvent
                                 = new QuesterPostUpdateObjectiveEvent(this, quest, 
-                                new BukkitObjective(type, locationsReached + 1, locationsToReach));
+                                setGoalObj(new BukkitObjective(type, locationsReached + 1, locationsToReach),
+                                        i < locationNames.size() ? locationNames.get(i) : null));
                         plugin.getServer().getPluginManager().callEvent(postEvent);
                         
                         break;
@@ -3746,9 +3766,17 @@ public class Quester implements IQuester {
             plugin.getLogger().warning("quest = " + quest.getId());
             plugin.getLogger().warning("index = " + index);
             plugin.getLogger().warning("location = " + location.toString());
-            plugin.getLogger().warning("locationsToReach = " + getCurrentStage(quest).getLocationsToReach().size());
-            plugin.getLogger().warning("locationsReached = " + getQuestData(quest).locationsReached.size());
-            plugin.getLogger().warning("hasReached = " + getQuestData(quest).locationsReached.size());
+            plugin.getLogger().warning("locationsToReach = " + Optional.ofNullable(getCurrentStage(quest))
+                    .map(IStage::getLocationsToReach)
+                    .map(LinkedList::size)
+                    .orElse(0));
+            plugin.getLogger().warning("locationsReached = " + Optional.ofNullable(getQuestData(quest))
+                    .map(item -> item.locationsReached)
+                    .map(LinkedList::size)
+                    .orElse(0));
+            plugin.getLogger().warning("hasReached = " + Optional.ofNullable(getQuestData(quest))
+                    .map(item -> item.locationsReached)
+                    .map(LinkedList::size));
             e.printStackTrace();
         }
     }
@@ -3859,7 +3887,7 @@ public class Quester implements IQuester {
         }
         
         final QuesterPostUpdateObjectiveEvent postEvent = new QuesterPostUpdateObjectiveEvent(this, quest, 
-                new BukkitObjective(type, newSheepSheared, sheepToShear));
+                setGoalObj(new BukkitObjective(type, newSheepSheared, sheepToShear), color));
         plugin.getServer().getPluginManager().callEvent(postEvent);
     }
 
@@ -3878,7 +3906,9 @@ public class Quester implements IQuester {
             plugin.getServer().getPluginManager().callEvent(preEvent);
 
             int index = 0;
+            String passwordPhrases = null;
             for (final String pass : getCurrentStage(quest).getPasswordPhrases()) {
+                passwordPhrases = pass;
                 if (pass.equalsIgnoreCase(evt.getMessage())) {
                     final String display = getCurrentStage(quest).getPasswordDisplays().get(index);
                     getQuestData(quest).passwordsSaid.set(index, true);
@@ -3905,7 +3935,7 @@ public class Quester implements IQuester {
             }
 
             final QuesterPostUpdateObjectiveEvent postEvent = new QuesterPostUpdateObjectiveEvent(this, quest,
-                    new BukkitObjective(type, 1, 1));
+                    setGoalObj(new BukkitObjective(type, 1, 1), passwordPhrases));
             plugin.getServer().getPluginManager().callEvent(postEvent);
         });
     }
