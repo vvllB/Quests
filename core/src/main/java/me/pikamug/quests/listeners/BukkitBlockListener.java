@@ -263,7 +263,7 @@ public class BukkitBlockListener implements Listener {
 
                                     final BukkitQuesterPostUpdateObjectiveEvent postEvent
                                             = new BukkitQuesterPostUpdateObjectiveEvent(quester, quest,
-                                            Quester.setGoalObj(new BukkitObjective(placeType, null, newAmount, toBreak.getAmount()), toBreak));
+                                            BukkitQuester.setGoalObj(new BukkitObjective(placeType, null, newAmount, toBreak.getAmount()), toBreak));
                                     plugin.getServer().getPluginManager().callEvent(postEvent);
                                 }
                             }
