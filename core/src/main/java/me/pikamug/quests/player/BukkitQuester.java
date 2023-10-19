@@ -809,6 +809,10 @@ public class BukkitQuester implements Quester {
             saveData();
             setCompassTarget(bukkitQuest);
             bukkitQuest.updateCompass(this, stage);
+            if (offlinePlayer.isOnline()) {
+                final BukkitQuesterPostStartQuestEvent postEvent = new BukkitQuesterPostStartQuestEvent(this, bukkitQuest);
+                plugin.getServer().getPluginManager().callEvent(postEvent);
+            }
         } else {
             if (offlinePlayer.isOnline()) {
                 sendMessage(ChatColor.DARK_AQUA + BukkitLang.get("requirements"));
@@ -816,10 +820,6 @@ public class BukkitQuester implements Quester {
                     sendMessage("- " + ChatColor.GRAY + s);
                 }
             }
-        }
-        if (offlinePlayer.isOnline()) {
-            final BukkitQuesterPostStartQuestEvent postEvent = new BukkitQuesterPostStartQuestEvent(this, bukkitQuest);
-            plugin.getServer().getPluginManager().callEvent(postEvent);
         }
     }
 
