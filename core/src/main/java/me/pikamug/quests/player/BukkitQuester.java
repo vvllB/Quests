@@ -77,6 +77,7 @@ import org.bukkit.inventory.meta.EnchantmentStorageMeta;
 import org.bukkit.material.Crops;
 import org.jetbrains.annotations.NotNull;
 
+import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;

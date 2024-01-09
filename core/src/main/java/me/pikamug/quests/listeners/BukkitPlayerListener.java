@@ -16,6 +16,7 @@ import me.pikamug.quests.BukkitQuestsPlugin;
 import me.pikamug.quests.enums.ObjectiveType;
 import me.pikamug.quests.player.Quester;
 import me.pikamug.quests.quests.Quest;
+import me.pikamug.quests.quests.components.Planner;
 import me.pikamug.quests.quests.components.Stage;
 import me.pikamug.quests.util.BukkitItemUtil;
 import me.pikamug.quests.util.BukkitLang;
@@ -379,8 +380,23 @@ public class BukkitPlayerListener implements Listener {
                                             BukkitLang.send(player, ChatColor.YELLOW + msg);
                                         } else {
                                             if (quester.getCompletedQuests().contains(bukkitQuest)) {
-                                                if (bukkitQuest.getPlanner().getCooldown() > -1
-                                                        && (quester.getRemainingCooldown(bukkitQuest)) > 0) {
+                                                Planner planner = bukkitQuest.getPlanner();
+                                                boolean cooling = planner.getCooldown() > -1 &&
+                                                        (quester.getRemainingCooldown(bukkitQuest)) > 0;
+
+                                                boolean newRound = false;
+                                                if (planner.hasRepeat() && planner.hasEnd() && planner.hasStart() && planner.hasCooldown()) {
+                                                    long thisRoundStart  = planner.getStartInMillis();
+                                                    while (thisRoundStart + planner.getRepeat() <= System.currentTimeMillis()) {
+                                                        thisRoundStart += planner.getRepeat();
+                                                    }
+                                                    newRound = planner.getOverride() &&
+                                                            thisRoundStart >= System.currentTimeMillis() - (planner.getCooldown() - quester.getRemainingCooldown(quest));
+                                                }
+
+                                                //                                                player.sendMessage("newRound:" + newRound);
+                                                if (cooling && !newRound) {
+//                                                    player.sendMessage("BukkitPlayerListener");
                                                     String early = BukkitLang.get(player, "questTooEarly");
                                                     early = early.replace("<quest>", ChatColor.AQUA + bukkitQuest.getName()
                                                             + ChatColor.YELLOW);
@@ -390,7 +406,7 @@ public class BukkitPlayerListener implements Listener {
                                                     BukkitLang.send(player, ChatColor.YELLOW + early);
                                                     continue;
                                                 } else if (quester.getCompletedQuests().contains(bukkitQuest)
-                                                        && bukkitQuest.getPlanner().getCooldown() < 0) {
+                                                        && planner.getCooldown() < 0) {
                                                     String completed = BukkitLang.get(player, "questAlreadyCompleted");
                                                     completed = completed.replace("<quest>", ChatColor.AQUA 
                                                             + bukkitQuest.getName() + ChatColor.YELLOW);
